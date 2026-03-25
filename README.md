@@ -1,291 +1,88 @@
-# BanglaSubTitles
+# 🎬 BanglaSubTitles: The Ultimate Bangla Subtitle Library
 
-BanglaSubTitles is a client‑side web app for browsing and downloading Bangla subtitles for movies and TV series. It groups multiple subtitle files into a single title entry, supports fuzzy search with autocomplete, rich TMDB‑powered detail modals, weekly highlights, and direct subtitle downloads via a backend proxy.
+[![Live Demo](https://img.shields.io/badge/Live-banglasub.vercel.app-60a5fa?style=for-the-badge&logo=vercel)](https://banglasub.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-34d399?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Stack](https://img.shields.io/badge/Stack-Vanilla%20JS%20%2B%20Vercel-f7df1e?style=for-the-badge&logo=javascript)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
----
-
-## Features
-
-- Intelligent **movie vs TV detection** from filenames (e.g. `S01E03`, `1x02`, `season`, `episode`, `web-series`).
-- Smart **title cleaning** from messy release names (resolutions, codecs, encoders, tags, etc. are stripped).
-- Grouping multiple files into a single **title card** by cleaned title, year, and type (movie/TV).
-- **Fuzzy search** with instant results and autocomplete suggestions (powered by uFuzzy, client‑side only).
-- Dual layout: **card grid** and **compact list** view, toggleable on the fly.
-- “Latest Subtitles” / **Popular** section using the server’s ordering of files.
-- **Weekly uploads slider** showing the latest 20 grouped titles with posters and quick info.
-- Filters for **year**, **type** (movie/TV), and **genre** (using TMDB genres).
-- Detail modal with:
-  - Poster from TMDB (fallback to local `DEFAULT_NOT_FOUND` image).
-  - Release date or first air date, rating, director or series creator, description, and top cast.
-  - Genre pills, quality and multi‑part tags.
-  - TV‑specific labels like `S01E03` or `S01E01-E03` for multi‑episode packs.
-  - Download button (via backend proxy) and copyable direct download link (Clipboard API).
-- Non‑blocking **TMDB genre prefetch**: metadata is fetched in the background, so first page loads fast.
-- Fully responsive (desktop, tablet, mobile) with scrollable modal content on small screens.
-
-> Note: The older light/dark theme toggle is not handled in `script.js`; theming can be managed via CSS and a separate script if desired.
+**BanglaSubTitles** is a high-performance, community-driven web application designed to bridge the gap between international content and Bengali-speaking audiences. Built with a focus on speed, precision, and user experience, it serves as a sophisticated index for high-quality Bangla subtitles.
 
 ---
 
-## Tech Stack
+## 🚀 Key Features
 
-- HTML5 + modern CSS (flexbox, grid, responsive layouts).
-- Vanilla JavaScript (no frontend framework).
-- [uFuzzy](https://github.com/leeoniya/uFuzzy) for client‑side fuzzy search over all titles and filenames.
-- TMDB (The Movie Database) HTTP API for metadata, posters, cast, and genres.
-- Clipboard API (`navigator.clipboard`) for copying direct download links.
+### 🧠 Intelligent Content Processing
+-   **Automated Heuristics**: Advanced regex-based parsing to detect **Movie vs. TV Series** types from complex filenames.
+-   **Smart Normalization**: Automatically strips release tags (e.g., `1080p`, `BluRay`, `x265`, `DDP5.1`) to group multiple subtitle versions under a single, clean title entry.
+-   **Dynamic Metadata Enrichment**: Real-time integration with **The Movie Database (TMDB)** to fetch posters, ratings, cast, and detailed overviews.
 
----
+### 🔍 Advanced Search & Navigation
+-   **Ultra-Fast Fuzzy Search**: Integrated with [uFuzzy](https://github.com/leeoniya/uFuzzy) for instantaneous, client-side searching across the entire library with support for typos and partial matches.
+-   **Multi-Dimensional Filtering**: Filter content by **Year**, **Genre**, and **Type** (Movie/TV) simultaneously.
+-   **Dual-Mode Interface**: Toggle seamlessly between a visually rich **Card Grid** and a high-density **List View**.
 
-## Backend Endpoints (Expected)
-
-The frontend expects two HTTP endpoints:
-
-- `GET /api/subtitles-list`  
-  Returns JSON with:
-
-  ```json
-  {
-    "files": [
-      {
-        "filename": "Movie.Title.2023.1080p.WEB-DL.Bangla.srt",
-        "path": "/relative/or/absolute/path/to/file.srt",
-        "year": 2023
-      }
-    ]
-  }
-  ```
-  - `filename`: original filename used for cleaning/type/quality/year parsing.
-  - `path`: value passed to the download proxy.
-  - `year`: optional; numeric or numeric string.
-
-- `GET /api/download?path=<encoded-path>`  
-  Streams the subtitle file for download. The frontend uses this endpoint when the user clicks **Download** inside the detail modal.
-
-You can implement these endpoints in any backend (Node, PHP, Laravel, Django, etc.) as long as the contract matches.
+### ⚡ Performance & UX
+-   **Non-Blocking Architecture**: Metadata pre-fetching and lazy-loading ensure the initial page load remains lightning-fast.
+-   **Weekly Highlights**: An automated, touch-friendly slider showcasing the latest 20 subtitle additions.
+-   **Direct-to-Download**: Secure backend proxying for subtitle downloads with one-click "Copy Link" functionality via the Clipboard API.
 
 ---
 
-## How It Works
+## 🛠️ Technical Architecture
 
-### 1. Data Loading and Grouping
+### Frontend Stack
+-   **Core**: Vanilla JavaScript (ES6+) — Zero heavy frameworks for maximum performance.
+-   **Styling**: Modern CSS3 utilizing **CSS Variables**, **Flexbox**, and **CSS Grid** for a fully responsive, dark-themed UI.
+-   **Search**: [uFuzzy](https://github.com/leeoniya/uFuzzy) (A tiny, efficient fuzzy search engine).
+-   **Icons**: FontAwesome 6.5.0.
 
-On home page initialization (`initHomePage()`):
-
-1. The app calls `GET /api/subtitles-list` with `Cache-Control: no-store` to avoid stale data.
-2. Each item in `files` is transformed into an internal subtitle object:
-   - `titleKey`: cleaned human‑friendly title from `filename` via `cleanMovieTitle` (removes extensions, quality tokens, codecs, encoders, etc.).
-   - `type`: `'movie'` or `'tv'` inferred via `inferType`, based on tokens like `s01e`, `season`, `episode`, `web-series`.
-   - `origName`: original `filename` for downloads/display.
-   - `path`: raw backend `path` for `/api/download?path=...`.
-   - `year`: parsed numeric year if available, otherwise empty string.
-   - `timing`: optional sync info from patterns like `[00:02:13]` in the filename.
-   - `seasonEpisode`: parsed `SxxExx` or `SxxExx-Exx` for TV releases (supports `S01E03`, `1x03`, multi‑episode packs).
-   - `qualityTags`: quality/mode tags inferred from the filename, such as `4K`, `1080p`, `WEB-DL`, `BluRay`, `BRRip`, `Remux`, `Multi-part`.
-
-3. `groupSubtitlesByTitleYear()` then:
-   - Normalizes the cleaned title using `normalizeTitleKey` (lowercases and normalizes whitespace, less destructive than before to avoid merging unrelated titles like different “Twelve” variants).
-   - Groups items by `normalizeTitleKey(titleKey) | year | type` into `groupedTitles`.
-   - Sorts groups by their first appearance in the original `files` list.
-   - Populates `latestGroups` with the first 50 groups.
-
-This grouping ensures that multiple subtitle files for the same movie/series entry show up under one card with multiple variants in the detail modal.
+### Backend & API
+-   **Runtime**: Vercel Serverless Functions (Node.js).
+-   **Data Source**: Dynamic fetching from the GitHub repository tree via the GitHub REST API.
+-   **Metadata**: TMDB API for rich media information.
 
 ---
 
-### 2. Search and Suggestions
+## 📖 How to Use for Collection
 
-The app builds a searchable string array `haystack`:
+### 1. Adding New Subtitles
+The system is designed to be "Drop-and-Go". To add new subtitles to the library:
+1.  Navigate to the folder corresponding to the movie/series release year (e.g., `/2024/`).
+2.  Upload your `.srt` file. 
+3.  **Naming Strategy**: For best results, use standard release names. The script will automatically parse them.
+    -   *Example*: `Oppenheimer.2023.1080p.BluRay.Bangla.srt`
+    -   *Example*: `The.Last.of.Us.S01E01.WEB-DL.Bangla.srt`
 
-- Each entry concatenates the group’s title, type, year, and all original filenames of its subtitles into a single string.
+### 2. Local Setup & Deployment
+To run this project locally or deploy your own instance:
 
-Then:
+1.  **Clone & Install**:
+    ```bash
+    git clone https://github.com/banglasub/banglasub.git
+    cd banglasub
+    npm install -g vercel
+    ```
+2.  **Environment Configuration**:
+    Set the following secrets in your Vercel project settings:
+    -   `GITHUB_REPO_OWNER`: Your GitHub username.
+    -   `GITHUB_REPO_NAME`: The repository name.
+    -   `GITHUB_TOKEN`: A GitHub PAT with `repo` permissions.
+    -   `TMDB_API_KEY`: Your API key from [TMDB](https://www.themoviedb.org/settings/api).
 
-- Initializes a `uFuzzy` instance with tuned options (insertions, deletions, substitutions, transpositions allowed; custom word delimiters like spaces, underscores, dashes, `@`, parentheses).
-- Maintains `idxToGroup` to map search results (indices) back to `groupedTitles`.
-
-When the user types in the search box:
-
-- Input is debounced (180 ms).!
-- `searchGroups(query)` runs `uf.search(haystack, query)` to get best matches.
-- Matching groups are:
-  - Rendered in the **Search Results** grid/list (`resultsSection`).
-  - Also used to build up to 8 clickable suggestions in `searchSuggestions` under the input.
-
-Clicking a suggestion opens the detail modal directly for that title.
-
----
-
-### 3. Card vs List View
-
-Two views share the exact same data:
-
-- **Card view** (`.card-grid`):
-  - Poster on top (lazy‑loaded via TMDB), title and type badge, year, subtitle count, and up to 4 quality tags.
-- **List view** (`.list-view`):
-  - Thumbnail on the left, text info and tags to the right.
-
-The toggle:
-
-- Buttons `#cardViewBtn` and `#listViewBtn` manage which mode is **active**.
-- `toggleView(isCard)`:
-  - Switches container classes between `card-grid` and `list-view` for both **Latest** and **Search Results** containers.
-  - Optionally re‑renders current content in the new layout (unless `skipRerender` is set on initial load).
+3.  **Launch**:
+    ```bash
+    vercel dev # Local development
+    vercel     # Deploy to production
+    ```
 
 ---
 
-### 4. Weekly Slider
+## 📜 License & Attribution
 
-The weekly (or “fresh uploads”) slider showcases recent titles:
+This project is licensed under the **MIT License**.
 
-- `computeWeeklyGroups()` picks the first 20 elements from `groupedTitles`.
-- `renderWeeklySlider()` renders them as `.weekly-card` elements with:
-  - Poster (from TMDB or fallback).\
-  - Title, year, and a tag (first quality tag or type label, e.g. `TV` or `Movie`).
-- Navigation:
-  - `#weeklyPrev` and `#weeklyNext` buttons scroll by one card width at a time.
-- Auto‑scroll:
-  - `startWeeklyAutoScroll()` automatically scrolls forward every `WEEKLY_AUTO_INTERVAL` milliseconds (4.5 seconds), loops back at the end, and pauses on hover/touch.
+-   **Metadata**: All movie/series information and artwork are provided by [TMDB](https://www.themoviedb.org/).
+-   **Subtitles**: All subtitles are community-contributed and credited to their original creators.
+-   **Development**: Maintained by **Bugsfree Studio**.
 
 ---
-
-### 5. Filters: Year, Type, Genre
-
-The app supports three filter dimensions on both home and results views:
-
-- **Year**:
-  - Extracted from `groupedTitles` and populated into `#yearFilter` and `#yearFilterResults` as `<option>` values.
-- **Type**:
-  - UI side select for `'movie'` or `'tv'` (you define the options in HTML and `script.js` reads them).
-- **Genre**:
-  - Uses TMDB genres (Action, Comedy, Drama, etc.), provided by the `KNOWN_GENRES` constant and stored per group from TMDB metadata.
-
-`applyYearTypeGenreFilter(list, yearValue, typeValue, genreValue)` filters any list of groups based on the selected values and the `group.genres` array.
-
----
-
-### 6. Detail Modal
-
-When the user clicks any card/list item:
-
-1. `openDetailModal(group)`:
-   - Locks background scroll by adding `modal-open` to `<html>` and `<body>`.
-   - Sets title, year label, type badge (`Movie` / `TV Series`).
-   - Sets poster to `DEFAULT_NOT_FOUND`, then asynchronously updates via `getPosterUrl`.
-   - Renders aggregated quality tags for the whole group in `#detailQualityTags`.
-   - Shows “Loading details…” placeholders for overview, release date, director/creator, rating, and cast.
-
-2. `getMovieDetails(group.title, group.year, group.type)`:
-   - Calls TMDB `search/movie` or `search/tv` and then `movie/{id}` or `tv/{id}` with `append_to_response=credits`.
-   - For TV:
-     - Prefers exact `name.toLowerCase()` match to avoid wrong series when titles like “Twelve” collide.
-     - Then exact `original_name.toLowerCase()`.
-     - Finally falls back to the first result.
-   - Extracts overview, release/first air date, rating, director or first `created_by`, top 6 cast (name, character, profile image), and genres.
-   - Populates `#detailDescription`, `#detailReleaseDate`, `#detailDirector`, `#detailRating`, `#detailCastGrid`, and `#detailGenres` accordingly.
-
-3. Subtitle variants:
-   - All `group.subs` are rendered as rows inside `#subtitleVariants`.
-   - Each row shows:
-     - Display name (clean title).
-     - For TV: `Episode: SxxExx` or `SxxExx-Exx` and optional sync timing like `Sync: 00:02:13`.
-     - Quality pills; falls back to a `General` pill if none.
-     - **Download** button:
-       - Calls `GET /api/download?path=<encoded sub.path>`.
-       - Shows spinner while loading, checkmark on success, warning on error.
-     - **Copy link** button:
-       - Builds full URL: `window.location.origin + DOWNLOAD_PROXY + encodeURIComponent(sub.path)`.
-       - Uses `navigator.clipboard.writeText` to copy.
-       - Shows checkmark or warning based on success/failure.
-
-4. Sidebar:
-   - Shows last 5 `latestGroups` as small posters with title and year.
-   - Clicking a sidebar item opens its detail modal.
-
-5. Closing:
-   - Click `#closeModal` button.
-   - Click on backdrop area (`.modal-backdrop`).
-   - Press `Escape` key.
-
-The modal body uses CSS max‑height and `overflow-y: auto` (in your styles) so content remains scrollable on smaller screens.
-
----
-
-## Performance Notes
-
-- First page render is **not blocked** by TMDB extended metadata anymore:
-  - `fetchSubtitles()` now:
-    - Fetches subtitle list, builds groups, initializes search and filters.
-    - Immediately calls `displayLatest(1)` to render the home content.
-    - Starts `prefetchGenresForGroups()` in the background (without `await`) to fill `group.genres` for genre filtering.
-- Poster loading is per card, using `getPosterUrl` with basic retries (full title and first 3 words, with/without year).
-
----
-
-## Setup
-
-1. **Place frontend files**
-
-   - Put `index.html`, `style.css`, and `script.js` into your project (adjust paths as needed).
-   - Ensure all IDs referenced in `script.js` exist in your HTML structure (containers, filters, modal elements, etc.).
-
-2. **Include uFuzzy**
-
-   Include the uFuzzy script in your HTML (CDN or bundled):
-
-   ```html
-   <script src="https://unpkg.com/@leeoniya/ufuzzy/dist/uFuzzy.iife.min.js"></script>
-   ```
-
-   `script.js` expects `uFuzzy` to be available globally.
-
-3. **Implement backend endpoints**
-
-   - `GET /api/subtitles-list` returning `files: [{ filename, path, year }]`.
-   - `GET /api/download?path=<encoded-path>` streaming the file.
-
-4. **Configure TMDB API key**
-
-   In `script.js`, set:
-
-   ```js
-   const TMDB_API_KEY = 'YOUR_TMDB_API_KEY_HERE';
-   ```
-
-   For production, consider injecting this at build time instead of hard‑coding.
-
-5. **Bootstrap the home page**
-
-   In your layout script:
-
-   ```js
-   window.addEventListener('DOMContentLoaded', () => {
-     if (window.initHomePage) {
-       window.initHomePage();
-     }
-   });
-   ```
-
-   And in your HTML:
-
-   ```html
-   <body data-page="home">
-   ```
-
-   so `initHomePage` knows when to run.
-
----
-
-## Customization
-
-- **Type detection**: tweak `inferType(filename)` if you want different rules for TV vs movies.
-- **Title cleaning**: adjust the big regex in `cleanMovieTitle` to handle your naming patterns (extra tags, languages, groups, etc.).
-- **Quality tags**: extend the `map` in `extractQualityTags` for new formats like `HDR10`, `DolbyVision`, etc.
-- **Grouping rules**: if you want stricter or looser grouping, modify `normalizeTitleKey` or the composite key in `groupSubtitlesByTitleYear` (e.g. include more dimensions like resolution or source).
-- **Genres**: `KNOWN_GENRES` can be updated to customize visible genre options in the filters.
-
----
-
-## License
-
-license (MIT). You must also follow TMDB’s terms of use and attribution requirements for API usage and image assets.
+*Empowering the Bengali community through global cinema.*
